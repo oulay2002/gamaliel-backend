@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS student_behaviors (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  teacher_id INT NOT NULL,
+  class_id INT NOT NULL,
+  behavior_type VARCHAR(100) NOT NULL,
+  description TEXT,
+  severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+  recorded_date DATE NOT NULL,
+  parent_notified BOOLEAN DEFAULT FALSE,
+  parent_signature BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_student (student_id),
+  INDEX idx_teacher (teacher_id),
+  INDEX idx_class (class_id),
+  INDEX idx_date (recorded_date),
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

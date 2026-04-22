@@ -1,0 +1,30 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "c:\\Users\\oulay\\OneDrive\\Bureau\\projet def\\claude code\\backend\\logs\\.082c562054b60c549d5ac0336057ba89a4bea42e-audit.json",
+    "files": [
+        {
+            "date": 1775662379569,
+            "name": "c:\\Users\\oulay\\OneDrive\\Bureau\\projet def\\claude code\\backend\\logs\\combined-2026-04-08.log",
+            "hash": "fc00f3c501270e51bfae843f891d7052b53bca7d41e7777dca27474de985e748"
+        },
+        {
+            "date": 1775715897748,
+            "name": "c:\\Users\\oulay\\OneDrive\\Bureau\\projet def\\claude code\\backend\\logs\\combined-2026-04-09.log",
+            "hash": "acdc8437efb8f9c37ae0cfa4d458e20de5749425a15da37ace68a53e7469bb2c"
+        },
+        {
+            "date": 1775802623978,
+            "name": "c:\\Users\\oulay\\OneDrive\\Bureau\\projet def\\claude code\\backend\\logs\\combined-2026-04-10.log",
+            "hash": "7dd4ec188dd75482934fbcd98fd28f429c75b767c83d0f41f8425b104bbdd624"
+        },
+        {
+            "date": 1775926345181,
+            "name": "c:\\Users\\oulay\\OneDrive\\Bureau\\projet def\\claude code\\backend\\logs\\combined-2026-04-11.log",
+            "hash": "130199de35fe05533f690c8ee9a704dc5d451736a4242eabf47ec805a7a05d01"
+        }
+    ],
+    "hashType": "sha256"
+}
