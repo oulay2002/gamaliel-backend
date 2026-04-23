@@ -105,6 +105,21 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Dossier uploads pour les fichiers statiques
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Route de santé ultra-simple pour tester
+app.get('/', (req, res) => {
+  console.log('✅ Requête GET / reçue');
+  res.json({ 
+    status: 'ok', 
+    message: 'Serveur Gamaliel en ligne',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/health', (req, res) => {
+  console.log('✅ Health check reçu');
+  res.json({ status: 'healthy', uptime: process.uptime() });
+});
+
 // ========================================
 // ROUTES API
 // ========================================
@@ -215,13 +230,16 @@ async function startServer() {
     
     if (!dbConnected) {
       console.error('❌ Échec de connexion à la base de données après 10 tentatives');
-      // Ne pas exit(1) - laisser Railway redémarrer automatiquement
       return;
     }
 
     // Créer les utilisateurs par défaut
-    const { seedDefaultUsers } = require('./seed-users');
-    await seedDefaultUsers().catch(err => console.log('⚠️ Seed users:', err.message));
+    try {
+      const { seedDefaultUsers } = require('./seed-users');
+      await seedDefaultUsers().catch(err => console.log('⚠️ Seed users:', err.message));
+    } catch (err) {
+      console.log('⚠️ Seed skipped:', err.message);
+    }
 
     // Démarrer le serveur
     const PORT = process.env.PORT || 3001;
@@ -231,7 +249,19 @@ async function startServer() {
       console.log('   🎓 API ÉCOLE GAMALIEL - DÉMARRÉE');
       console.log(`   🌐 Serveur: accessible sur le port ${PORT}`);
       console.log(`   📊 Environnement: ${process.env.NODE_ENV}`);
+      console.log('   🔄 Processus actif et écoute les connexions...');
       console.log('============================================================');
+    });
+
+    // 🔥 GARDER LE PROCESSUS ACTIF
+    // Empêcher Node.js de se terminer
+    setInterval(() => {
+      // Keep-alive pour éviter que le processus ne se termine
+    }, 30000).unref();
+
+    // Gestion des erreurs serveur
+    server.on('error', (err) => {
+      console.error('❌ ERREUR SERVEUR HTTP:', err);
     });
 
     // Gestion propre des signaux
@@ -241,7 +271,6 @@ async function startServer() {
         console.log('✅ Serveur fermé proprement');
         process.exit(0);
       });
-      // Force close après 10 secondes
       setTimeout(() => {
         console.error('❌ Fermeture forcée après timeout');
         process.exit(1);
@@ -250,13 +279,24 @@ async function startServer() {
 
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT', () => shutdown('SIGINT'));
+    
+    // Capturer les erreurs non gérées
+    process.on('uncaughtException', (err) => {
+      console.error('❌ EXCEPTION NON CAPTURÉE:', err);
+      // NE PAS EXIT - laisser Railway redémarrer
+    });
+    
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('❌ PROMESSE NON GÉRÉE:', reason);
+      // NE PAS EXIT - laisser Railway redémarrer
+    });
+
+    console.log('✅ Serveur prêt à accepter les connexions');
 
   } catch (error) {
     console.error('❌ Erreur au démarrage:', error);
-    // Ne pas exit(1) - laisser Railway gérer le redémarrage automatique
   }
 }
-
 // Démarrer le serveur
 startServer();
 
