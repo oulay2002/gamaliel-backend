@@ -1,45 +1,31 @@
-const express = require('express');
-const cors = require('cors');
+const http = require('http');
 
-const app = express();
-app.use(cors({ origin: '*', credentials: true }));
-app.use(express.json());
-
-// Routes
-app.get('/', (req, res) => {
-  console.log('✅ GET / reçu');
-  res.json({ status: 'ok', message: 'API en ligne' });
-});
-
-app.get('/api/health', (req, res) => {
-  console.log('✅ GET /api/health reçu');
-  res.json({ success: true, timestamp: new Date().toISOString() });
-});
-
-// Démarrer
 const PORT = process.env.PORT || 3001;
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log('========================================');
-  console.log('🎓 API GAMALIEL DÉMARRÉE');
-  console.log(`🌐 Port: ${PORT}`);
-  console.log('========================================');
-  console.log('🔄 Processus actif - en attente de connexions...');
+const server = http.createServer((req, res) => {
+  // Logger la requête
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  
+  // Répondre IMMÉDIATEMENT
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ 
+    status: 'ok',
+    message: 'Serveur fonctionnel',
+    timestamp: new Date().toISOString()
+  }));
 });
 
-// 🔥 GARDER LE PROCESSUS ACTIF (CRUCIAL POUR RAILWAY)
-console.log('📌 Keep-alive activé pour empêcher la sortie du processus');
-setInterval(() => {
-  // Empêche Node.js de se terminer
-}, 2147483647).unref();
-
-// Gestion erreurs
-process.on('uncaughtException', (err) => {
-  console.error('❌ EXCEPTION:', err.message);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ SERVEUR DÉMARRÉ SUR 0.0.0.0:${PORT}`);
+  console.log(`🌐 Test: curl http://localhost:${PORT}/`);
 });
 
-process.on('unhandledRejection', (reason) => {
-  console.error('❌ PROMESSE:', reason);
-});
+// Garder le processus actif
+process.stdin.resume();
 
-module.exports = app;
+process.on('SIGTERM', () => {
+  server.close(() => {
+    console.log('Serveur arrêté');
+    process.exit(0);
+  });
+});
