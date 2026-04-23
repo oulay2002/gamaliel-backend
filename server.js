@@ -105,6 +105,8 @@ app.all('*', (req, res) => {
   res.status(404).json({ error: 'Route non trouvée', path: req.url });
 });
 
+// MODIFICATION POUR RAILWAY - Date: 2026-04-23
+
 // ========================================
 // DÉMARRAGE
 // ========================================
