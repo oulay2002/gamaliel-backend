@@ -25,6 +25,12 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'API Gamaliel en ligne' });
 });
 
+// Health check pour Railway (SANS /api/)
+app.get('/health', (req, res) => {
+  console.log('✅ GET /health reçu (Railway healthcheck)');
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 app.get('/api/health', (req, res) => {
   console.log('✅ GET /api/health reçu');
   res.json({ success: true, message: 'API opérationnelle' });
