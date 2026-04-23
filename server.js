@@ -20,8 +20,8 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'API opérationnelle' });
 });
 
-// Route de login
-app.post('/api/auth/login', async (req, res) => {
+// Route de login (SANS /api pour correspondre à l'app mobile)
+app.post('/auth/login', async (req, res) => {
   try {
     console.log('📩 Login attempt:', req.body);
     
@@ -33,6 +33,67 @@ app.post('/api/auth/login', async (req, res) => {
         error: 'Email et mot de passe requis' 
       });
     }
+    
+    // Connexion MySQL
+    const connection = await mysql.createConnection({
+      host: process.env.MYSQLHOST || 'localhost',
+      user: process.env.MYSQLUSER || 'root',
+      password: process.env.MYSQLPASSWORD || '',
+      database: process.env.MYSQLDATABASE || 'railway',
+      port: process.env.MYSQLPORT || 3306
+    });
+    
+    // Chercher l'utilisateur
+    const [users] = await connection.execute(
+      'SELECT * FROM users WHERE email = ?',
+      [email]
+    );
+    
+    await connection.end();
+    
+    if (users.length === 0) {
+      console.log('❌ Utilisateur non trouvé:', email);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Email ou mot de passe incorrect' 
+      });
+    }
+    
+    const user = users[0];
+    
+    // Vérifier le mot de passe
+    const isValid = await bcrypt.compare(password, user.password);
+    
+    if (!isValid) {
+      console.log('❌ Mot de passe incorrect pour:', email);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Email ou mot de passe incorrect' 
+      });
+    }
+    
+    console.log('✅ Login réussi:', email);
+    
+    res.json({
+      success: true,
+      message: 'Connexion réussie',
+      user: {
+        id: user.id,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        role: user.role
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur login:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erreur serveur: ' + error.message 
+    });
+  }
+});
     
     // Connexion MySQL
     const connection = await mysql.createConnection({
