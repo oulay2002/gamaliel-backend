@@ -189,51 +189,73 @@ app.use((err, req, res, next) => {
 });
 
 // ========================================
-// DÉMARRAGE DU SERVEUR
+// DÉMARRAGE DU SERVEUR (Cloud Ready)
 // ========================================
 
 async function startServer() {
   try {
-    // Tester la connexion à la base de données
+    // Tester la connexion à la base de données avec réessais
     const db = require('./config/database');
-    const dbConnected = await db.testConnection();
-
+    let dbConnected = false;
+    
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      try {
+        dbConnected = await db.testConnection();
+        if (dbConnected) {
+          console.log('✅ Connexion à la base de données réussie');
+          break;
+        }
+      } catch (err) {
+        console.log(`⏳ Tentative ${attempt}/10 - DB non prête: ${err.message}`);
+      }
+      if (attempt < 10) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+    
     if (!dbConnected) {
-      console.error('❌ Impossible de démarrer sans base de données');
-      process.exit(1);
+      console.error('❌ Échec de connexion à la base de données après 10 tentatives');
+      // Ne pas exit(1) - laisser Railway redémarrer automatiquement
+      return;
     }
 
-    // Créer les utilisateurs par défaut s'ils n'existent pas
+    // Créer les utilisateurs par défaut
     const { seedDefaultUsers } = require('./seed-users');
-    await seedDefaultUsers();
+    await seedDefaultUsers().catch(err => console.log('⚠️ Seed users:', err.message));
 
     // Démarrer le serveur
-    // Dans votre fichier server.js (backend)
-    const PORT = process.env.PORT || 3001; // Utilise le port de Render ou 3001 par défaut
-
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`============================================================`);
-      console.log(`   🎓 API ÉCOLE GAMALIEL - DÉMARRÉE`);
+    const PORT = process.env.PORT || 3001;
+    
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log('============================================================');
+      console.log('   🎓 API ÉCOLE GAMALIEL - DÉMARRÉE');
       console.log(`   🌐 Serveur: accessible sur le port ${PORT}`);
-      console.log(`============================================================`);
-    });;
+      console.log(`   📊 Environnement: ${process.env.NODE_ENV}`);
+      console.log('============================================================');
+    });
+
+    // Gestion propre des signaux
+    const shutdown = (signal) => {
+      console.log(`\n📡 Signal ${signal} reçu, fermeture en cours...`);
+      server.close(() => {
+        console.log('✅ Serveur fermé proprement');
+        process.exit(0);
+      });
+      // Force close après 10 secondes
+      setTimeout(() => {
+        console.error('❌ Fermeture forcée après timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
 
   } catch (error) {
     console.error('❌ Erreur au démarrage:', error);
-    process.exit(1);
+    // Ne pas exit(1) - laisser Railway gérer le redémarrage automatique
   }
 }
-
-// Gérer les signaux d'arrêt propre
-process.on('SIGTERM', () => {
-  console.log('\n📡 Signal SIGTERM reçu, fermeture en cours...');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('\n📡 Signal SIGINT reçu, fermeture en cours...');
-  process.exit(0);
-});
 
 // Démarrer le serveur
 startServer();
