@@ -1,6 +1,6 @@
 {
   "name": "ecole-gamaliel-api",
-  "version": "2.0.1", // ← Changez le numéro de version
+  "version": "2.0.1", 
   "description": "API REST pour le système de gestion scolaire École Gamaliel",
   "main": "server.js",
   "engines": {
