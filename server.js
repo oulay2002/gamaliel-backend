@@ -132,20 +132,30 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'API opérationnelle' });
 });
 
-// ========================================
-// ROUTE DE LOGIN (CRUCIAL : DOIT ÊTRE AVANT LES CATCH-ALL)
-// ========================================
 app.post('/auth/login', async (req, res) => {
-  console.log('🔐 POST /auth/login reçu - Corps:', JSON.stringify(req.body));
+  // 🔍 LOG ULTRA-DÉTAILLÉ POUR DÉBOGAGE MOBILE
+  console.log('========================================');
+  console.log('🔐 LOGIN ATTEMPT - DÉTAILS COMPLETS');
+  console.log('📱 Headers:', JSON.stringify(req.headers));
+  console.log('📦 Body (raw):', JSON.stringify(req.body));
+  console.log('📡 Method:', req.method);
+  console.log('🔗 URL:', req.url);
+  console.log('🌐 IP:', req.ip);
+  console.log('========================================');
   
   try {
     const { email, password } = req.body;
     
+    // Vérifier si email/password sont présents
     if (!email || !password) {
-      console.log('❌ Champs manquants');
-      return res.status(400).json({ success: false, error: 'Email et mot de passe requis' });
+      console.log('❌ Champs manquants - email:', email, 'password:', password);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email et mot de passe requis' 
+      });
     }
     
+    // ... reste du code inchangé ...    
     // Connexion MySQL
     const connection = await mysql.createConnection({
       host: process.env.MYSQLHOST || 'localhost',
