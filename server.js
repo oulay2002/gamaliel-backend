@@ -222,6 +222,54 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
+// Route temporaire pour créer un utilisateur test (À SUPPRIMER APRÈS)
+app.get('/setup/create-test-user', async (req, res) => {
+  console.log('🔧 Création utilisateur test...');
+  
+  try {
+    const mysql = require('mysql2/promise');
+    const bcrypt = require('bcryptjs');
+    
+    // Récupérer les paramètres depuis l'URL (?role=parent&email=test@test.com)
+    const role = req.query.role || 'parent';
+    const email = req.query.email || `${role}@test.com`;
+    const password = '123456';
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const connection = await mysql.createConnection({
+      host: process.env.MYSQLHOST,
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
+      port: process.env.MYSQLPORT || 3306
+    });
+    
+    // Insérer l'utilisateur
+    await connection.execute(
+      `INSERT INTO users (email, password, role, nom, prenom, status) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [email, hashedPassword, role, 'Test', role === 'parent' ? 'Parent' : 'Enseignant', 'actif']
+    );
+    
+    await connection.end();
+    
+    console.log(`✅ Utilisateur ${role} créé: ${email}`);
+    
+    res.json({
+      success: true,
+      message: `Utilisateur ${role} créé avec succès`,
+      email: email,
+      password: password,
+      role: role,
+      hashedPassword: hashedPassword
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur création utilisateur:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========================================
 // CATCH-ALL POUR DÉBOGAGE (à la FIN)
 // ========================================
