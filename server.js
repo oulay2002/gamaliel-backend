@@ -17,6 +17,102 @@ app.use((req, res, next) => {
   next();
 });
 
+// Route temporaire pour créer la table users (À SUPPRIMER APRÈS USAGE)
+app.get('/setup/create-users-table', async (req, res) => {
+  console.log('🔧 Création de la table users...');
+  
+  try {
+    const mysql = require('mysql2/promise');
+    
+    const connection = await mysql.createConnection({
+      host: process.env.MYSQLHOST || 'localhost',
+      user: process.env.MYSQLUSER || 'root',
+      password: process.env.MYSQLPASSWORD || '',
+      database: process.env.MYSQLDATABASE || 'railway',
+      port: process.env.MYSQLPORT || 3306
+    });
+    
+    // Créer la table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        nom VARCHAR(100),
+        prenom VARCHAR(100),
+        status VARCHAR(20) DEFAULT 'actif',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_email (email)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    
+    console.log('✅ Table users créée avec succès');
+    
+    await connection.end();
+    
+    res.json({
+      success: true,
+      message: 'Table users créée avec succès',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur création table:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Route temporaire pour ajouter l'admin (À SUPPRIMER APRÈS USAGE)
+app.get('/setup/add-admin', async (req, res) => {
+  console.log('🔧 Ajout de l\'utilisateur admin...');
+  
+  try {
+    const mysql = require('mysql2/promise');
+    const bcrypt = require('bcryptjs');
+    
+    // Générer le hash pour "123456"
+    const hashedPassword = await bcrypt.hash('123456', 10);
+    
+    const connection = await mysql.createConnection({
+      host: process.env.MYSQLHOST || 'localhost',
+      user: process.env.MYSQLUSER || 'root',
+      password: process.env.MYSQLPASSWORD || '',
+      database: process.env.MYSQLDATABASE || 'railway',
+      port: process.env.MYSQLPORT || 3306
+    });
+    
+    // Insérer l'admin
+    await connection.execute(`
+      INSERT INTO users (email, password, role, nom, prenom, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, ['admin@gamaliel.com', hashedPassword, 'directeur', 'Admin', 'Gamaliel', 'actif']);
+    
+    console.log('✅ Admin créé avec succès');
+    
+    await connection.end();
+    
+    res.json({
+      success: true,
+      message: 'Utilisateur admin créé avec succès',
+      password: '123456',
+      hashedPassword: hashedPassword,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur création admin:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ========================================
 // ROUTES DE SANTÉ
 // ========================================
