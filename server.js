@@ -132,21 +132,22 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'API opérationnelle' });
 });
 
-app.post('/auth/login', async (req, res) => { 
-
-const { email, username, password } = req.body;
-const identifier = email || username;
-
+// ========================================
+// ROUTE DE LOGIN (COMPATIBLE MOBILE)
+// ========================================
+app.post('/auth/login', async (req, res) => {
+  // 🔧 ACCEPTER email OU username (pour compatibilité mobile)
+  const { email, username, password } = req.body;
+  const identifier = email || username;  // Prend email en priorité, sinon username
+  
   console.log('========================================');
   console.log('🔐 LOGIN ATTEMPT - DÉTAILS COMPLETS');
   console.log('📦 Body:', JSON.stringify(req.body));
+  console.log('🔑 Identifier utilisé:', identifier);
   console.log('========================================');
   
   try {
-    // 🔧 ACCEPTER email OU username (pour compatibilité mobile)
-    const { email, username, password } = req.body;
-    const identifier = email || username;  // Prend email en priorité, sinon username
-    
+    // 🔧 Vérifier identifier (pas email seul)
     if (!identifier || !password) {
       console.log('❌ Champs manquants - identifier:', identifier, 'password:', password);
       return res.status(400).json({ 
@@ -167,10 +168,10 @@ const identifier = email || username;
       port: process.env.MYSQLPORT || 3306
     });
     
-    // Chercher par email OU par username selon ce qui est envoyé
+    // Chercher par email dans la DB (l'identifiant mobile est mappé à email)
     const [users] = await connection.execute(
       'SELECT * FROM users WHERE email = ?',
-      [identifier]  // On cherche toujours par email dans la DB
+      [identifier]  // 🔧 Utiliser identifier ici
     );
     
     await connection.end();
@@ -186,6 +187,7 @@ const identifier = email || username;
     const user = users[0];
     console.log('✅ Utilisateur trouvé, vérification mot de passe...');
     
+    // Vérifier le mot de passe avec bcrypt
     const bcrypt = require('bcryptjs');
     const isValid = await bcrypt.compare(password, user.password);
     
@@ -217,59 +219,6 @@ const identifier = email || username;
       success: false, 
       error: 'Erreur serveur: ' + error.message 
     });
-  }
-}); 
-  
-    // Connexion MySQL
-    const connection = await mysql.createConnection({
-      host: process.env.MYSQLHOST || 'localhost',
-      user: process.env.MYSQLUSER || 'root',
-      password: process.env.MYSQLPASSWORD || '',
-      database: process.env.MYSQLDATABASE || 'railway',
-      port: process.env.MYSQLPORT || 3306
-    });
-    
-    console.log('🔍 Recherche utilisateur:', email);
-    
-    const [users] = await connection.execute(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
-    );
-    
-    await connection.end();
-    
-    if (users.length === 0) {
-      console.log('❌ Utilisateur NON TROUVÉ:', email);
-      return res.status(401).json({ success: false, error: 'Email ou mot de passe incorrect' });
-    }
-    
-    const user = users[0];
-    console.log('✅ Utilisateur trouvé, vérification mot de passe...');
-    
-    const isValid = await bcrypt.compare(password, user.password);
-    
-    if (!isValid) {
-      console.log('❌ Mot de passe INCORRECT');
-      return res.status(401).json({ success: false, error: 'Email ou mot de passe incorrect' });
-    }
-    
-    console.log('🎉 LOGIN RÉUSSI:', email);
-    
-    res.json({
-      success: true,
-      message: 'Connexion réussie',
-      user: {
-        id: user.id,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        role: user.role
-      }
-    });
-    
-  } catch (error) {
-    console.error('💥 ERREUR LOGIN:', error.message);
-    res.status(500).json({ success: false, error: 'Erreur serveur: ' + error.message });
   }
 });
 
