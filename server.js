@@ -132,30 +132,94 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'API opérationnelle' });
 });
 
-app.post('/auth/login', async (req, res) => {
-  // 🔍 LOG ULTRA-DÉTAILLÉ POUR DÉBOGAGE MOBILE
+app.post('/auth/login', async (req, res) => { 
+
+const { email, username, password } = req.body;
+const identifier = email || username;
+
   console.log('========================================');
   console.log('🔐 LOGIN ATTEMPT - DÉTAILS COMPLETS');
-  console.log('📱 Headers:', JSON.stringify(req.headers));
-  console.log('📦 Body (raw):', JSON.stringify(req.body));
-  console.log('📡 Method:', req.method);
-  console.log('🔗 URL:', req.url);
-  console.log('🌐 IP:', req.ip);
+  console.log('📦 Body:', JSON.stringify(req.body));
   console.log('========================================');
   
   try {
-    const { email, password } = req.body;
+    // 🔧 ACCEPTER email OU username (pour compatibilité mobile)
+    const { email, username, password } = req.body;
+    const identifier = email || username;  // Prend email en priorité, sinon username
     
-    // Vérifier si email/password sont présents
-    if (!email || !password) {
-      console.log('❌ Champs manquants - email:', email, 'password:', password);
+    if (!identifier || !password) {
+      console.log('❌ Champs manquants - identifier:', identifier, 'password:', password);
       return res.status(400).json({ 
         success: false, 
         error: 'Email et mot de passe requis' 
       });
     }
     
-    // ... reste du code inchangé ...    
+    console.log('🔍 Recherche utilisateur avec identifier:', identifier);
+    
+    // Connexion MySQL
+    const mysql = require('mysql2/promise');
+    const connection = await mysql.createConnection({
+      host: process.env.MYSQLHOST,
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
+      port: process.env.MYSQLPORT || 3306
+    });
+    
+    // Chercher par email OU par username selon ce qui est envoyé
+    const [users] = await connection.execute(
+      'SELECT * FROM users WHERE email = ?',
+      [identifier]  // On cherche toujours par email dans la DB
+    );
+    
+    await connection.end();
+    
+    if (users.length === 0) {
+      console.log('❌ Utilisateur NON TROUVÉ:', identifier);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Email ou mot de passe incorrect' 
+      });
+    }
+    
+    const user = users[0];
+    console.log('✅ Utilisateur trouvé, vérification mot de passe...');
+    
+    const bcrypt = require('bcryptjs');
+    const isValid = await bcrypt.compare(password, user.password);
+    
+    if (!isValid) {
+      console.log('❌ Mot de passe INCORRECT');
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Email ou mot de passe incorrect' 
+      });
+    }
+    
+    console.log('🎉 LOGIN RÉUSSI:', identifier);
+    
+    res.json({
+      success: true,
+      message: 'Connexion réussie',
+      user: {
+        id: user.id,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        role: user.role
+      }
+    });
+    
+  } catch (error) {
+    console.error('💥 ERREUR LOGIN:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erreur serveur: ' + error.message 
+    });
+  }
+}); 
+  
     // Connexion MySQL
     const connection = await mysql.createConnection({
       host: process.env.MYSQLHOST || 'localhost',
