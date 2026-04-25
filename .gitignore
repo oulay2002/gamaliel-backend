@@ -1,1 +1,21 @@
+# Secrets & Environnement
 .env
+*.env.local
+# Dépendances & Build
+node_modules/
+*.apk
+*.log
+.DS_Store
+Thumbs.db
+# IDE & OS
+.vs/
+.vscode/
+.idea/
+# Fichiers temporaires & Office
+~$*
+*.tmp
+*.swp
+*.docx
+*.xlsx
+*.pdf
+*.url
