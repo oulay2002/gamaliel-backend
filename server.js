@@ -15,6 +15,71 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ============================================
+// ROUTE: POST /api/login - Authentification
+// ============================================
+app.post('/api/login', async (req, res) => {
+  console.log('🔥🔥🔥 /api/login HIT! Body:', req.body); 
+    try {
+    const { email, password } = req.body;
+      
+    // 🔧 Validation basique
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email et mot de passe requis' 
+      });
+    }
+    
+    // 🔧 TODO: Remplacer par ta vraie vérification MySQL
+    // Exemple pour test :
+    const VALID_ADMIN = {
+      email: 'admin@gamaliel.com',
+      password: 'admin123'  // ⚠️ À changer en prod !
+    };
+    
+    if (email !== VALID_ADMIN.email || password !== VALID_ADMIN.password) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Identifiants invalides' 
+      });
+    }
+    
+    // ✅ Générer un token JWT
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { 
+        userId: 1, 
+        email: VALID_ADMIN.email, 
+        role: 'admin' 
+      },
+      process.env.JWT_SECRET || 'fallback_secret_change_in_prod',
+      { expiresIn: '24h' }
+    );
+    
+    console.log(`✅ Login réussi: ${email}`);
+    
+    res.json({
+      success: true,
+      message: 'Connexion réussie',
+      token,
+      user: {
+        id: 1,
+        email: VALID_ADMIN.email,
+        role: 'admin',
+        name: 'Administrateur'
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur login:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erreur serveur lors de la connexion' 
+    });
+  }
+});
+
 // === ROUTE DEBUG PUBLIQUE (à supprimer après) ===
 app.get('/debug/alive', (req, res) => {
   console.log('✅✅✅ /debug/alive HIT at', new Date().toISOString());
@@ -427,71 +492,6 @@ const PORT = process.env.PORT || 3001;
 app.all('*', (req, res) => {
   console.log('⚠️ Route non trouvée:', req.method, req.url);
   res.status(404).json({ error: 'Route non trouvée', path: req.url });
-});
-
-// ============================================
-// ROUTE: POST /api/login - Authentification
-// ============================================
-app.post('/api/login', async (req, res) => {
-  console.log('🔥🔥🔥 /api/login HIT! Body:', req.body); 
-    try {
-    const { email, password } = req.body;
-      
-    // 🔧 Validation basique
-    if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Email et mot de passe requis' 
-      });
-    }
-    
-    // 🔧 TODO: Remplacer par ta vraie vérification MySQL
-    // Exemple pour test :
-    const VALID_ADMIN = {
-      email: 'admin@gamaliel.com',
-      password: 'admin123'  // ⚠️ À changer en prod !
-    };
-    
-    if (email !== VALID_ADMIN.email || password !== VALID_ADMIN.password) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Identifiants invalides' 
-      });
-    }
-    
-    // ✅ Générer un token JWT
-    const jwt = require('jsonwebtoken');
-    const token = jwt.sign(
-      { 
-        userId: 1, 
-        email: VALID_ADMIN.email, 
-        role: 'admin' 
-      },
-      process.env.JWT_SECRET || 'fallback_secret_change_in_prod',
-      { expiresIn: '24h' }
-    );
-    
-    console.log(`✅ Login réussi: ${email}`);
-    
-    res.json({
-      success: true,
-      message: 'Connexion réussie',
-      token,
-      user: {
-        id: 1,
-        email: VALID_ADMIN.email,
-        role: 'admin',
-        name: 'Administrateur'
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur login:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Erreur serveur lors de la connexion' 
-    });
-  }
 });
 
 // ============================================
