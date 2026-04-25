@@ -322,6 +322,96 @@ app.all('*', (req, res) => {
   res.status(404).json({ error: 'Route non trouvée', path: req.url });
 });
 
+// ============================================
+// ROUTE: Dashboard Stats (pour l'app mobile)
+// ============================================
+app.get('/dashboard/stats', authenticateToken, async (req, res) => {
+  try {
+    const { role } = req.user;
+    
+    // Stats différentes selon le rôle
+    let stats = {};
+    
+    if (role === 'admin' || role === 'directeur') {
+      stats = {
+        totalStudents: 150,
+        totalTeachers: 12,
+        totalClasses: 8,
+        totalParents: 145,
+        pendingPayments: 23,
+        todayAttendance: 142
+      };
+    } else if (role === 'teacher') {
+      stats = {
+        myClasses: 4,
+        myStudents: 85,
+        pendingGrades: 12,
+        todaySchedule: 3
+      };
+    } else if (role === 'parent') {
+      stats = {
+        myChildren: 2,
+        pendingPayments: 1,
+        unreadNotifications: 3,
+        nextMeeting: '2026-04-28'
+      };
+    }
+    
+    res.json({
+      success: true,
+      message: 'Dashboard stats récupérées',
+      data: stats
+    });
+  } catch (error) {
+    console.error('❌ Erreur dashboard stats:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erreur serveur lors de la récupération des stats' 
+    });
+  }
+});
+
+// ============================================
+// ROUTE: Register Mobile Notifications (Firebase)
+// ============================================
+app.post('/mobile/notifications/register', authenticateToken, async (req, res) => {
+  try {
+    const { deviceToken, platform } = req.body; // platform: 'android' | 'ios'
+    const userId = req.user.userId;
+    
+    if (!deviceToken) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Device token requis' 
+      });
+    }
+    
+    // 🔧 Ici, tu devrais sauvegarder le token dans ta base MySQL
+    // Exemple de requête (à adapter à ton schéma) :
+    /*
+    await db.query(
+      `INSERT INTO user_devices (user_id, device_token, platform, created_at) 
+       VALUES (?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE device_token = ?, updated_at = NOW()`,
+      [userId, deviceToken, platform, deviceToken]
+    );
+    */
+    
+    console.log(`📱 Token enregistré: User ${userId}, Platform: ${platform || 'unknown'}`);
+    
+    res.json({
+      success: true,
+      message: 'Token de notification enregistré avec succès'
+    });
+  } catch (error) {
+    console.error('❌ Erreur registration notifications:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erreur lors de l\'enregistrement du token' 
+    });
+  }
+});
+
 // ========================================
 // DÉMARRAGE DU SERVEUR
 // ========================================
