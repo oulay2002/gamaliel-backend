@@ -315,14 +315,6 @@ app.get('/setup/create-test-user', async (req, res) => {
 });
 
 // ========================================
-// CATCH-ALL (404) - DOIT ÊTRE À LA FIN
-// ========================================
-app.all('*', (req, res) => {
-  console.log('⚠️ Route non trouvée:', req.method, req.url);
-  res.status(404).json({ error: 'Route non trouvée', path: req.url });
-});
-
-// ============================================
 // ROUTE: Dashboard Stats (pour l'app mobile)
 // ============================================
 app.get('/dashboard/stats', authenticateToken, async (req, res) => {
@@ -417,6 +409,16 @@ app.post('/mobile/notifications/register', authenticateToken, async (req, res) =
 // ========================================
 const PORT = process.env.PORT || 3001;
 
+// === CATCH-ALL 404 (à la fin, après toutes les routes) ===
+
+// CATCH-ALL (404) - DOIT ÊTRE À LA FIN
+// ========================================
+app.all('*', (req, res) => {
+  console.log('⚠️ Route non trouvée:', req.method, req.url);
+  res.status(404).json({ error: 'Route non trouvée', path: req.url });
+});
+
+// ============================================
 app.listen(PORT, '0.0.0.0', () => {
   console.log('========================================');
   console.log('🎓 API GAMALIEL DÉMARRÉE');
