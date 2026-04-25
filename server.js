@@ -2,37 +2,246 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
+
+// 🔹 Import du middleware d'authentification (UNE SEULE FOIS)
+const authenticateToken = require('./middleware/auth');
 
 const app = express();
 
-// Middlewares (DOIVENT être en premier)
+// ✅ MIDDLEWARES - DOIVENT ÊTRE EN PREMIER
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logger toutes les requêtes pour déboguer
+// Logger pour débogage
 app.use((req, res, next) => {
   console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Route temporaire pour créer la table users (À SUPPRIMER APRÈS USAGE)
-app.get('/setup/create-users-table', async (req, res) => {
-  console.log('🔧 Création de la table users...');
+// ========================================
+// ROUTES PUBLIQUES (Sans token)
+// ========================================
+
+// Health checks
+app.get('/', (req, res) => res.json({ status: 'ok', message: 'API Gamaliel en ligne' }));
+app.get('/health', (req, res) => res.json({ status: 'healthy', timestamp: new Date().toISOString() }));
+app.get('/api/health', (req, res) => res.json({ success: true, message: 'API opérationnelle' }));
+
+// Login - COMPATIBLE MOBILE (accepte email OU username)
+app.post('/auth/login', async (req, res) => {
+  const { email, username, password } = req.body;
+  const identifier = email || username;
+  
+  console.log('🔐 Login attempt:', identifier);
+  
+  if (!identifier || !password) {
+    return res.status(400).json({ success: false, error: 'Email et mot de passe requis' });
+  }
   
   try {
-    const mysql = require('mysql2/promise');
-    
     const connection = await mysql.createConnection({
-      host: process.env.MYSQLHOST || 'localhost',
-      user: process.env.MYSQLUSER || 'root',
-      password: process.env.MYSQLPASSWORD || '',
-      database: process.env.MYSQLDATABASE || 'railway',
+      host: process.env.MYSQLHOST,
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
       port: process.env.MYSQLPORT || 3306
     });
     
-    // Créer la table
+    // Chercher par email (l'identifiant mobile est mappé à email)
+    const [users] = await connection.execute('SELECT * FROM users WHERE email = ?', [identifier]);
+    await connection.end();
+    
+    if (users.length === 0) {
+      return res.status(401).json({ success: false, error: 'Email ou mot de passe incorrect' });
+    }
+    
+    const user = users[0];
+    const isValid = await bcrypt.compare(password, user.password);
+    
+    if (!isValid) {
+      return res.status(401).json({ success: false, error: 'Email ou mot de passe incorrect' });
+    }
+    
+    // Générer token JWT
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.json({
+      success: true,
+      message: 'Connexion réussie',
+      token: token,  // ← Important pour le mobile
+      user: {
+        id: user.id,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        role: user.role
+      }
+    });
+    
+  } catch (error) {
+    console.error('💥 Login error:', error.message);
+    res.status(500).json({ success: false, error: 'Erreur serveur: ' + error.message });
+  }
+});
+
+// Refresh token (optionnel mais recommandé)
+app.post('/auth/refresh', authenticateToken, async (req, res) => {
+  try {
+    const newToken = jwt.sign(
+      { id: req.user.id, email: req.user.email, role: req.user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    res.json({ success: true, token: newToken });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur refresh token' });
+  }
+});
+
+// ========================================
+// ROUTES PROTÉGÉES (Avec token)
+// ========================================
+
+// 🔹 STUDENTS - Route demandée par ton app mobile
+app.get('/api/students', authenticateToken, async (req, res) => {
+  try {
+    const connection = await mysql.createConnection({
+      host: process.env.MYSQLHOST,
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
+      port: process.env.MYSQLPORT || 3306
+    });
+    
+    // 🔧 Ajuste cette requête selon TA structure de base de données réelle
+    const [students] = await connection.execute(`
+      SELECT id, email, nom, prenom, role, status, created_at 
+      FROM users 
+      WHERE role IN ('parent', 'student', 'enseignant')
+      ORDER BY nom, prenom
+    `);
+    
+    await connection.end();
+    
+    res.json({
+      success: true,
+       students,
+      count: students.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching students:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+});
+
+// 🔹 DASHBOARD - Exemple de route protégée
+app.get('/api/dashboard/:role', authenticateToken, async (req, res) => {
+  try {
+    // Vérifier que l'utilisateur a le bon rôle
+    if (req.user.role !== req.params.role && req.user.role !== 'directeur') {
+      return res.status(403).json({ success: false, error: 'Accès refusé' });
+    }
+    
+    // Données factices pour l'exemple (à remplacer par tes vraies requêtes)
+   res.json({
+  success: true,
+  data: {                    
+    role: req.params.role,
+    stats: { students: 150, teachers: 12, classes: 8 },
+    message: `Dashboard ${req.params.role} chargé`
+  }
+});
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+});
+
+// 🔹 NOTES - Exemple
+app.get('/api/notes/:matricule', authenticateToken, async (req, res) => {
+  try {
+    // 🔧 Remplace par ta vraie requête SQL
+    res.json({
+      success: true,
+      data: {
+        matricule: req.params.matricule,
+        notes: [
+          { matiere: 'Maths', note: 15, coef: 2 },
+          { matiere: 'Français', note: 14, coef: 3 }
+        ]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+});
+
+// 🔹 ABSENCES - Exemple
+app.get('/api/absences/:matricule', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        matricule: req.params.matricule,
+        absences: []
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+});
+
+// 🔹 PAYMENTS - Exemple
+app.get('/api/payments/:matricule', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        matricule: req.params.matricule,
+        payments: [],
+        balance: 0
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+});
+
+// 🔹 MESSAGES - Exemple
+app.get('/api/messages/:userId', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        userId: req.params.userId,
+        messages: []
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+});
+
+// ========================================
+// ROUTES DE SETUP (À supprimer en production)
+// ========================================
+
+app.get('/setup/create-users-table', async (req, res) => {
+  try {
+    const connection = await mysql.createConnection({
+      host: process.env.MYSQLHOST,
+      user: process.env.MYSQLUSER,
+      password: process.env.MYSQLPASSWORD,
+      database: process.env.MYSQLDATABASE,
+      port: process.env.MYSQLPORT || 3306
+    });
+    
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -48,118 +257,16 @@ app.get('/setup/create-users-table', async (req, res) => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
     
-    console.log('✅ Table users créée avec succès');
-    
     await connection.end();
-    
-    res.json({
-      success: true,
-      message: 'Table users créée avec succès',
-      timestamp: new Date().toISOString()
-    });
-    
+    res.json({ success: true, message: 'Table users créée' });
   } catch (error) {
-    console.error('❌ Erreur création table:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Route temporaire pour ajouter l'admin (À SUPPRIMER APRÈS USAGE)
 app.get('/setup/add-admin', async (req, res) => {
-  console.log('🔧 Ajout de l\'utilisateur admin...');
-  
   try {
-    const mysql = require('mysql2/promise');
-    const bcrypt = require('bcryptjs');
-    
-    // Générer le hash pour "123456"
     const hashedPassword = await bcrypt.hash('123456', 10);
-    
-    const connection = await mysql.createConnection({
-      host: process.env.MYSQLHOST || 'localhost',
-      user: process.env.MYSQLUSER || 'root',
-      password: process.env.MYSQLPASSWORD || '',
-      database: process.env.MYSQLDATABASE || 'railway',
-      port: process.env.MYSQLPORT || 3306
-    });
-    
-    // Insérer l'admin
-    await connection.execute(`
-      INSERT INTO users (email, password, role, nom, prenom, status)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, ['admin@gamaliel.com', hashedPassword, 'directeur', 'Admin', 'Gamaliel', 'actif']);
-    
-    console.log('✅ Admin créé avec succès');
-    
-    await connection.end();
-    
-    res.json({
-      success: true,
-      message: 'Utilisateur admin créé avec succès',
-      password: '123456',
-      hashedPassword: hashedPassword,
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur création admin:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// ========================================
-// ROUTES DE SANTÉ
-// ========================================
-app.get('/', (req, res) => {
-  console.log('✅ GET / reçu');
-  res.json({ status: 'ok', message: 'API Gamaliel en ligne' });
-});
-
-// Health check pour Railway (SANS /api/)
-app.get('/health', (req, res) => {
-  console.log('✅ GET /health reçu (Railway healthcheck)');
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
-
-app.get('/api/health', (req, res) => {
-  console.log('✅ GET /api/health reçu');
-  res.json({ success: true, message: 'API opérationnelle' });
-});
-
-// ========================================
-// ROUTE DE LOGIN (COMPATIBLE MOBILE)
-// ========================================
-app.post('/auth/login', async (req, res) => {
-  // 🔧 ACCEPTER email OU username (pour compatibilité mobile)
-  const { email, username, password } = req.body;
-  const identifier = email || username;  // Prend email en priorité, sinon username
-  
-  console.log('========================================');
-  console.log('🔐 LOGIN ATTEMPT - DÉTAILS COMPLETS');
-  console.log('📦 Body:', JSON.stringify(req.body));
-  console.log('🔑 Identifier utilisé:', identifier);
-  console.log('========================================');
-  
-  try {
-    // 🔧 Vérifier identifier (pas email seul)
-    if (!identifier || !password) {
-      console.log('❌ Champs manquants - identifier:', identifier, 'password:', password);
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Email et mot de passe requis' 
-      });
-    }
-    
-    console.log('🔍 Recherche utilisateur avec identifier:', identifier);
-    
-    // Connexion MySQL
-    const mysql = require('mysql2/promise');
     const connection = await mysql.createConnection({
       host: process.env.MYSQLHOST,
       user: process.env.MYSQLUSER,
@@ -168,69 +275,20 @@ app.post('/auth/login', async (req, res) => {
       port: process.env.MYSQLPORT || 3306
     });
     
-    // Chercher par email dans la DB (l'identifiant mobile est mappé à email)
-    const [users] = await connection.execute(
-      'SELECT * FROM users WHERE email = ?',
-      [identifier]  // 🔧 Utiliser identifier ici
+    await connection.execute(
+      'INSERT INTO users (email, password, role, nom, prenom) VALUES (?, ?, ?, ?, ?)',
+      ['admin@gamaliel.com', hashedPassword, 'directeur', 'Admin', 'Gamaliel']
     );
     
     await connection.end();
-    
-    if (users.length === 0) {
-      console.log('❌ Utilisateur NON TROUVÉ:', identifier);
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Email ou mot de passe incorrect' 
-      });
-    }
-    
-    const user = users[0];
-    console.log('✅ Utilisateur trouvé, vérification mot de passe...');
-    
-    // Vérifier le mot de passe avec bcrypt
-    const bcrypt = require('bcryptjs');
-    const isValid = await bcrypt.compare(password, user.password);
-    
-    if (!isValid) {
-      console.log('❌ Mot de passe INCORRECT');
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Email ou mot de passe incorrect' 
-      });
-    }
-    
-    console.log('🎉 LOGIN RÉUSSI:', identifier);
-    
-    res.json({
-      success: true,
-      message: 'Connexion réussie',
-      user: {
-        id: user.id,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        role: user.role
-      }
-    });
-    
+    res.json({ success: true, message: 'Admin créé', password: '123456' });
   } catch (error) {
-    console.error('💥 ERREUR LOGIN:', error.message);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Erreur serveur: ' + error.message 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Route temporaire pour créer un utilisateur test (À SUPPRIMER APRÈS)
 app.get('/setup/create-test-user', async (req, res) => {
-  console.log('🔧 Création utilisateur test...');
-  
   try {
-    const mysql = require('mysql2/promise');
-    const bcrypt = require('bcryptjs');
-    
-    // Récupérer les paramètres depuis l'URL (?role=parent&email=test@test.com)
     const role = req.query.role || 'parent';
     const email = req.query.email || `${role}@test.com`;
     const password = '123456';
@@ -244,54 +302,36 @@ app.get('/setup/create-test-user', async (req, res) => {
       port: process.env.MYSQLPORT || 3306
     });
     
-    // Insérer l'utilisateur
     await connection.execute(
-      `INSERT INTO users (email, password, role, nom, prenom, status) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [email, hashedPassword, role, 'Test', role === 'parent' ? 'Parent' : 'Enseignant', 'actif']
+      'INSERT INTO users (email, password, role, nom, prenom) VALUES (?, ?, ?, ?, ?)',
+      [email, hashedPassword, role, 'Test', role]
     );
     
     await connection.end();
-    
-    console.log(`✅ Utilisateur ${role} créé: ${email}`);
-    
-    res.json({
-      success: true,
-      message: `Utilisateur ${role} créé avec succès`,
-      email: email,
-      password: password,
-      role: role,
-      hashedPassword: hashedPassword
-    });
-    
+    res.json({ success: true, email, password, role });
   } catch (error) {
-    console.error('❌ Erreur création utilisateur:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // ========================================
-// CATCH-ALL POUR DÉBOGAGE (à la FIN)
+// CATCH-ALL (404) - DOIT ÊTRE À LA FIN
 // ========================================
 app.all('*', (req, res) => {
-  console.log('⚠️ Route non gérée:', req.method, req.url);
+  console.log('⚠️ Route non trouvée:', req.method, req.url);
   res.status(404).json({ error: 'Route non trouvée', path: req.url });
 });
 
-// MODIFICATION POUR RAILWAY - Date: 2026-04-23
-
 // ========================================
-// DÉMARRAGE
+// DÉMARRAGE DU SERVEUR
 // ========================================
 const PORT = process.env.PORT || 3001;
 
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('========================================');
   console.log('🎓 API GAMALIEL DÉMARRÉE');
   console.log(`🌐 Port: ${PORT}`);
   console.log('========================================');
 });
-
-process.stdin.resume();
 
 module.exports = app;

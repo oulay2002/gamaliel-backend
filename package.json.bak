@@ -1,0 +1,60 @@
+{
+  "name": "ecole-gamaliel-api",
+  "version": "2.0.1", 
+  "description": "API REST pour le système de gestion scolaire École Gamaliel",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "init-db": "node scripts/init-database.js",
+    "init-sync": "node scripts/init-sync-tables.js",
+    "seed": "node scripts/seed-data.js",
+    "health": "curl http://localhost:3000/api/health",
+    "test": "jest --coverage"
+  },
+// Health check pour Railway (SANS /api/)
+app.get('/health', (req, res) => {
+  console.log('✅ GET /health reçu (Railway healthcheck)');
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Health check API
+app.get('/api/health', (req, res) => {
+  console.log('✅ GET /api/health reçu');
+  res.json({ success: true, message: 'API opérationnelle' });
+});
+  "keywords": ["ecole", "gestion-scolaire", "api", "nodejs", "mysql"],
+  "author": "École Gamaliel",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "firebase": "^12.11.0",
+    "firebase-admin": "^12.7.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.6.5",
+    "nodemailer": "^6.9.7",
+    "pdfkit": "^0.14.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.4"
+  }
+}

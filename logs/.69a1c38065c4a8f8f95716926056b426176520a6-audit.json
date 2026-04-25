@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\oulay\\OneDrive\\Bureau\\projet def\\claude code\\backend\\logs\\.69a1c38065c4a8f8f95716926056b426176520a6-audit.json",
+    "files": [
+        {
+            "date": 1776873425101,
+            "name": "C:\\Users\\oulay\\OneDrive\\Bureau\\projet def\\claude code\\backend\\logs\\combined-2026-04-22.log",
+            "hash": "49f5e555cddd8cf8b427e83c9b05aba0bce11e9c5fe8b72dc6b5b0f20c1ffe7f"
+        }
+    ],
+    "hashType": "sha256"
+}
