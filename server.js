@@ -15,6 +15,17 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// === ROUTE DEBUG PUBLIQUE (à supprimer après) ===
+app.get('/debug/alive', (req, res) => {
+  console.log('✅✅✅ /debug/alive HIT at', new Date().toISOString());
+  res.json({ 
+    success: true, 
+    message: 'Server is alive!', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Logger pour débogage
 app.use((req, res, next) => {
   console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -422,9 +433,10 @@ app.all('*', (req, res) => {
 // ROUTE: POST /api/login - Authentification
 // ============================================
 app.post('/api/login', async (req, res) => {
-  try {
+  console.log('🔥🔥🔥 /api/login HIT! Body:', req.body); 
+    try {
     const { email, password } = req.body;
-    
+      
     // 🔧 Validation basique
     if (!email || !password) {
       return res.status(400).json({ 
