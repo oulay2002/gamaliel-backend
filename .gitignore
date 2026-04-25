@@ -1,15 +1,16 @@
+# Secrets & Environnement
+.env
+*.env.local
 # Dépendances & Build
 node_modules/
 *.apk
 *.log
-
+.DS_Store
+Thumbs.db
 # IDE & OS
 .vs/
 .vscode/
 .idea/
-.DS_Store
-Thumbs.db
-
 # Fichiers temporaires & Office
 ~$*
 *.tmp
@@ -18,8 +19,3 @@ Thumbs.db
 *.xlsx
 *.pdf
 *.url
-
-# Dossiers de projet voisins (à ajuster si nécessaire)
-android-app/
-mobile-app/
-backend-mobile/
