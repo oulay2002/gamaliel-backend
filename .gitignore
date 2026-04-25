@@ -1,1 +1,25 @@
-.env
+# Dépendances & Build
+node_modules/
+*.apk
+*.log
+
+# IDE & OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Fichiers temporaires & Office
+~$*
+*.tmp
+*.swp
+*.docx
+*.xlsx
+*.pdf
+*.url
+
+# Dossiers de projet voisins (à ajuster si nécessaire)
+android-app/
+mobile-app/
+backend-mobile/
